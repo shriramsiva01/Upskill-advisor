@@ -1,0 +1,84 @@
+[
+  {
+    "course_id": "C101",
+    "title": "Intro to Python",
+    "skills": ["python_basics", "data_structures"],
+    "difficulty": "beginner",
+    "duration_weeks": 6,
+    "prerequisites": [],
+    "outcomes": ["python_fundamentals"]
+  },
+  {
+    "course_id": "C102",
+    "title": "Linear Algebra for AI",
+    "skills": ["linear_algebra", "matrices", "vectors"],
+    "difficulty": "intermediate",
+    "duration_weeks": 4,
+    "prerequisites": ["python_basics"],
+    "outcomes": ["linear_algebra_basics"]
+  },
+  {
+    "course_id": "C103",
+    "title": "Probability & Statistics",
+    "skills": ["probability", "statistics", "distributions"],
+    "difficulty": "intermediate",
+    "duration_weeks": 5,
+    "prerequisites": ["python_basics"],
+    "outcomes": ["statistical_analysis"]
+  },
+  {
+    "course_id": "C104",
+    "title": "Data Wrangling with Pandas",
+    "skills": ["data_cleaning", "data_analysis", "pandas"],
+    "difficulty": "beginner",
+    "duration_weeks": 3,
+    "prerequisites": ["python_basics"],
+    "outcomes": ["data_manipulation"]
+  },
+  {
+    "course_id": "C105",
+    "title": "Machine Learning Fundamentals",
+    "skills": ["ml_basics", "supervised_learning", "unsupervised_learning"],
+    "difficulty": "intermediate",
+    "duration_weeks": 6,
+    "prerequisites": ["python_basics", "linear_algebra", "statistics"],
+    "outcomes": ["ml_foundation"]
+  },
+  {
+    "course_id": "C106",
+    "title": "Deep Learning with TensorFlow",
+    "skills": ["neural_networks", "deep_learning", "tensorflow"],
+    "difficulty": "advanced",
+    "duration_weeks": 6,
+    "prerequisites": ["ml_basics", "python_basics"],
+    "outcomes": ["dl_models"]
+  },
+  {
+    "course_id": "C107",
+    "title": "Natural Language Processing",
+    "skills": ["nlp", "text_processing", "tokenization"],
+    "difficulty": "advanced",
+    "duration_weeks": 5,
+    "prerequisites": ["python_basics", "ml_basics"],
+    "outcomes": ["nlp_basics"]
+  },
+  {
+    "course_id": "C108",
+    "title": "Computer Vision",
+    "skills": ["cv", "image_processing", "cnn"],
+    "difficulty": "advanced",
+    "duration_weeks": 5,
+    "prerequisites": ["python_basics", "ml_basics"],
+    "outcomes": ["cv_models"]
+  },
+  {
+    "course_id": "C109",
+    "title": "AI Ethics & Governance",
+    "skills": ["ai_ethics", "responsible_ai", "bias_in_ai"],
+    "difficulty": "beginner",
+    "duration_weeks": 2,
+    "prerequisites": [],
+    "outcomes": ["ethical_ai_principles"]
+  }
+]
+
