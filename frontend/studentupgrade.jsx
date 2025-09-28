@@ -15,6 +15,7 @@ import {
   Divider,
   CircularProgress,
   Paper,
+  Stack,
 } from "@mui/material";
 import SkillGapChart from "./SkillGapChart";
 
@@ -194,11 +195,17 @@ function StudentUpgrade() {
                 {line}
               </Typography>
             ))}  
-            <Typography variant="h5" fontWeight="bold" gutterBottom>
-              Course Coverage Metric (Top k): {recommendations["top3_coverage metric"]}
-              LLM Latency (ms): {recommendations["llm_latency_ms"]} 
-              Backend Latency (ms): {recommendations["backend_latency_ms"]}
-            </Typography>
+            <Stack spacing={1}>
+              <Typography variant="h6" fontWeight="bold">
+                Course Coverage Metric (Top k): {recommendations["top3_coverage metric"]}
+              </Typography>
+              <Typography variant="body1">
+                LLM Latency (ms): {recommendations["llm_latency_ms"]}
+              </Typography>
+              <Typography variant="body1">
+                Backend Latency (ms): {recommendations["backend_latency_ms"]}
+              </Typography>
+            </Stack>
           </CardContent>
         </Card>
       )}
