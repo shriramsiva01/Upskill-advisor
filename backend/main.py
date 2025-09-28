@@ -9,6 +9,9 @@ from fastapi.responses import Response
 import models as models, crud
 from database import get_db, engine
 import pinecone_utils
+import re
+import time
+from pinecone_utils import get_courses_for_skill
 # ensure tables exist
 models.Base.metadata.create_all(bind=engine)
 
@@ -29,24 +32,103 @@ app.add_middleware(
 def health():
     return {"status": "ok"}
 
-@app.get("/students")
+@app.get("/students", tags=["Students"], summary="Get all students")
 def students(db: Session = Depends(get_db)):
+    """
+    Returns a list of all students.
+    """
     return crud.get_students(db)
 
-@app.get("/job_roles")
+@app.get("/job_roles",  tags=["Jobs"], summary="Get all job roles")
 def job_roles(db: Session = Depends(get_db)):
+    """
+    Returns a list of all job roles.
+    """
     return crud.get_job_role(db)
 
-@app.get("/student_info")
+@app.get("/student_info", tags=["Students"], summary="Get student information")
 def student_info(student_id: int, db: Session = Depends(get_db)):
+    """
+    Returns information about students providing details on their current role, the time and cost they can spare to upgrade.
+    """
     info = crud.get_student_info(db, student_id)
     if not info:
         raise HTTPException(status_code=404, detail="Student not found")
-    return info[0]
+    return {
+        "student_name": info.get("name"),
+        "role": info.get("role"),
+        "max_duration_weeks": info.get("max_duration_weeks"),
+        "budget": info.get("budget"),
+    }
 
+@app.api_route("/skill_gap/{student_id}/{job_id}", methods=["GET", "POST"], tags=["Skill Gap"],
+    summary="Get skill gap for a student for a specific job")
+def skill_gap(student_id: int, job_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Calculates the skill gap for a student for a specific job.
+    """
+    print(f"Received {request.method} /skill_gap/{student_id}/{job_id}")
+    student_skills = crud.get_student_skills(db, student_id)
+    student_info = crud.get_student_info(db, student_id)
+    job_reqs = crud.get_job_requirements(db, job_id)
+    skill_gap_list = []
+    for skill, required in job_reqs.items():
+        current = student_skills.get(skill, 0)
+        gap = required - current
+        skill_gap_list.append({
+            "skill": skill,
+            "student_level": current,
+            "required_level": required,
+            "gap": gap
+        })
+    return {
+        "student_id": student_id,
+        "student_name": student_info["name"] if student_info else None,
+        "job_id": job_id,
+        "skill_gap": skill_gap_list
+    }
+    
+
+
+def format_llm_reasoning(raw_text: str) -> str:
+    # Remove "Based on the provided data" section if too long
+    raw_text = re.sub(r"Based on the provided data:.*?(?=\d\.)", "", raw_text, flags=re.S)
+
+    # Replace * with bullets
+    formatted = raw_text.replace("* ", "• ")
+
+    # Optionally shorten intro phrases
+    formatted = formatted.replace("In summary, I recommend", "Recommended")
+
+    return formatted.strip()
+    
+def compute_topk_coverage(job_requirements: dict, recommendations: list, k: int = 3) -> float:
+    """Compute Top-K Skill Coverage metric using course 'skills' lists."""
+    jd_skills = set(job_requirements.keys())
+    if not jd_skills:
+        return 0.0
+
+    # Take the first K recommended courses
+    topk_courses = recommendations[:k]
+
+    # Collect all skills these courses cover
+    topk_skills = set()
+    for course in topk_courses:
+        for s in course.get("skills", []):   # 'skills' is a list
+            topk_skills.add(str(s))          # force into string, safe
+
+    return round(len(jd_skills & topk_skills) / len(jd_skills), 3)
+    
+    
 # accept GET and POST so method mismatches don't cause errors
-@app.api_route("/advise/{student_id}/{job_id}", methods=["GET", "POST"])
+@app.api_route("/advise/{student_id}/{job_id}", methods=["GET", "POST"], tags=["Advice"],
+    summary="Get personalized advice for a student for a job")
 def advise(student_id: int, job_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    Returns personalized advice for a student to bridge the skill gap for a job leveraging Llama3 local LLM.
+    """
+    start_time = time.perf_counter()   # ✅ start timer
+
     print(f"Received {request.method} /advise/{student_id}/{job_id}")
     student_skills = crud.get_student_skills(db, student_id)
     student_info = crud.get_student_info(db, student_id)
@@ -55,8 +137,6 @@ def advise(student_id: int, job_id: int, request: Request, db: Session = Depends
     if not job_reqs:
         raise HTTPException(status_code=404, detail="Job or job skills not found")
 
-    
-    
     embeddings = pinecone_utils.init_embeddings()
     index = pinecone_utils.get_index()
     
@@ -89,14 +169,25 @@ def advise(student_id: int, job_id: int, request: Request, db: Session = Depends
             recommendations.extend(suitable_courses)
 
     print(recommendations)
-    
-    '''spider_chart = {
-        "labels": list(job_reqs.keys()),
-        "student_levels": [student_skills.get(k, 0) for k in job_reqs.keys()],
-        "job_levels": list(job_reqs.values()),
-    }
+    '''
+    all_courses = []
+    for skill, target in job_reqs.items():
+        current = student_skills.get(skill, 0)
+        gap = target - current
+        if gap > 0:
+            # Retrieve candidate courses that teach this skill
+            print(f"Getting courses for skill from pinecone")
+            courses = get_courses_for_skill(skill, index, embeddings)
+            for c in courses:
+                c["score"] = round((c["level_gain"] or 1) / ((c["duration"] or 1) * float(c["cost"] or 1)), 6)
+                all_courses.append(c)
+
+    unique_courses = {c["course_id"]: c for c in all_courses}.values()
+    course_path = list(unique_courses)
     '''
     
+    coverage_at3 = compute_topk_coverage(job_reqs, recommendations, k=3)
+    llm_start_time = time.perf_counter()   # ✅ start timer
     # LLM reasoning is optional; don't fail if not configured
     llm_text = "LLM not configured or failed"
     try:
@@ -104,9 +195,14 @@ def advise(student_id: int, job_id: int, request: Request, db: Session = Depends
         from langchain.prompts import ChatPromptTemplate
         llm = ChatOllama(model="llama3")
         prompt = ChatPromptTemplate.from_template(
-            "Given student skills {student} and job requirements {job}, and these course options {courses}, "
-            "suggest the most cost and time effective ones."
+            "The student has the following skills: {student}. "
+            "The target job requires: {job}. "
+            "We analyzed the gaps and found these detailed course recommendations per skill: {recommendations}. "
+            #"The overall course path we can take is: {course_path}. "
+            "Suggest the best sequence of courses from the overall path that will efficiently close the gaps, "
+            "minimizing cost and time, and explain why."
         )
+
         print("LLM initialized")
         chain = prompt | llm
         
@@ -115,19 +211,30 @@ def advise(student_id: int, job_id: int, request: Request, db: Session = Depends
         llm_resp = chain.invoke({
             "student": student_skills,
             "job": job_reqs,
-            "courses": recommendations
+            #"course_path": course_path,
+            "recommendations": recommendations
         })
         llm_text = getattr(llm_resp, "content", str(llm_resp))
-        print("LLM response:", llm_text)
-    except Exception as e:
-        print("LLM disabled or error:", e)
-
-    return {
+        print("LLM response received - evaluating coverage metric")
+        end_time = time.perf_counter()
+        latency_ms = round((end_time - start_time) * 1000, 2)   # in milliseconds
+        llm_latency_ms = round((end_time - llm_start_time) * 1000, 2)
+        result= {
         "student": {"id": student_id, "skills": student_skills},
         "job": {"id": job_id, "required_skills": job_reqs},
         "course_path": recommendations if recommendations else [],
-        "llm_reasoning": llm_text
-    }
+        "llm_reasoning": format_llm_reasoning(llm_text),
+        "top3_coverage metric": coverage_at3,
+        "backend_latency_ms": latency_ms,
+        "llm_latency_ms": llm_latency_ms
+        }
+        #print("LLM response:", format_llm_reasoning(llm_text))
+    except Exception as e:
+        print("LLM disabled or error:", e)
+
+    return result
+
+
 
 
 '''
