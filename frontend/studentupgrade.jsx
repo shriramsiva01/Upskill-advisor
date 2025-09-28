@@ -1,5 +1,22 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Button,
+  List,
+  ListItem,
+  Divider,
+  CircularProgress,
+  Paper,
+} from "@mui/material";
+import SkillGapChart from "./SkillGapChart";
 
 function StudentUpgrade() {
   const [students, setStudents] = useState([]);
@@ -10,156 +27,182 @@ function StudentUpgrade() {
   const [recommendations, setRecommendations] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Load dropdown data (students & jobs) when component mounts
+  // Fetch students and jobs on mount
   useEffect(() => {
-    // Fetch students
-    axios.get("http://127.0.0.1:8000/students")
-      .then(res => {
-        console.log("student data " + res.data) ; 
-        setStudents(res.data);
-      })
-      .catch(err => {
-        console.error("Error fetching students:", err);
-      });
+    const fetchData = async () => {
+      try {
+        const [studentsRes, jobsRes] = await Promise.all([
+          axios.get("http://localhost:8000/students"),
+          axios.get("http://localhost:8000/job_roles"),
+        ]);
+        setStudents(studentsRes.data);
+        setJobs(jobsRes.data);
+      } catch (err) {
+        console.error("Error fetching students or jobs:", err);
+      }
+    };
+    fetchData();
+  }, []);
 
-    // Fetch job roles
-    axios.get("http://127.0.0.1:8000/job_roles")
-      .then(res => {
-        console.log("job data " + res.data) ; 
-        setJobs(res.data);
-      })
-      .catch(err => {
-        console.error("Error fetching jobs:", err);
-      });
-  } , []);
-
-  // Fetch student details when dropdown changes
-  
-
+  // Fetch student info when student changes
   useEffect(() => {
-    if (selectedStudent) {
-      axios
-        .get(`http://localhost:8000/student_info`, {
-          params: { student_id: (selectedStudent) }  // ✅ cleaner way
-        })
-        .then((res) => {
-          setStudentInfo(res.data);
-        })
-        .catch((err) => {
-          console.error("Error fetching student info:", err);
-        });
-    }
-  }, [selectedStudent]);
-
-  // Handle Recommendation Button
-  const getRecommendations = async () => {
-    if (!selectedStudent || !selectedJob) {
-      alert("Please select both a student and a target role!");
+    if (!selectedStudent) {
+      setStudentInfo(null);
       return;
     }
 
+    const fetchStudentInfo = async () => {
+      try {
+        const res = await axios.get("http://localhost:8000/student_info", {
+          params: { student_id: selectedStudent },
+        });
+        setStudentInfo(res.data);
+      } catch (err) {
+        console.error("Error fetching student info:", err);
+      }
+    };
+
+    fetchStudentInfo();
+  }, [selectedStudent]);
+
+  // Function to get recommendations
+  const getRecommendations = async () => {
+    if (!selectedStudent || !selectedJob) return;
     setLoading(true);
     setRecommendations(null);
 
     try {
-      console.log(selectedStudent, selectedJob);
-      const response = await fetch(`http://127.0.0.1:8000/advise/${selectedStudent}/${selectedJob}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { data } = await axios.post(
+        `http://127.0.0.1:8000/advise/${selectedStudent}/${selectedJob}`,
+        {
           student_id: selectedStudent,
-          target_role: selectedJob
-        })
-      });
-
-      const data = await response.json();
+          target_role: selectedJob,
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
       setRecommendations(data);
-    } catch (error) {
-      console.error("Error fetching recommendations:", error);
+    } catch (err) {
+      console.error("Error fetching recommendations:", err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto bg-white shadow-md rounded-lg">
-      <h2 className="text-2xl font-bold mb-4">Student Upgrade Planner</h2>
+    <Box
+      sx={{
+        p: 4,
+        maxWidth: "700px",
+        mx: "auto",
+        bgcolor: "background.paper",
+        boxShadow: 3,
+        borderRadius: 2,
+      }}
+    >
+      <Typography variant="h4" fontWeight="bold" gutterBottom>
+        Student Upgrade Planner
+      </Typography>
 
       {/* Student Dropdown */}
-      <div className="mb-4">
-        <label className="block mb-1 font-semibold">Select Student:</label>
-        <select
+      <FormControl fullWidth margin="normal">
+        <InputLabel>Select Student</InputLabel>
+        <Select
           value={selectedStudent}
-          onChange={(e) => setSelectedStudent((e.target.value))}
-          className="w-full p-2 border rounded"
+          onChange={(e) => setSelectedStudent(e.target.value)}
+          label="Select Student"
         >
-          <option value="">-- Choose Student --</option>
+          <MenuItem value="">
+            <em>-- Choose Student --</em>
+          </MenuItem>
           {students.map((s) => (
-            <option key={s.id} value={s.id}>
+            <MenuItem key={s.id} value={s.id}>
               {s.name}
-            </option>
+            </MenuItem>
           ))}
-        </select>
-      </div>
+        </Select>
+      </FormControl>
 
       {/* Target Role Dropdown */}
-      <div className="mb-4">
-        <label className="block mb-1 font-semibold">Select Target Role:</label>
-        <select
+      <FormControl fullWidth margin="normal">
+        <InputLabel>Select Target Role</InputLabel>
+        <Select
           value={selectedJob}
-          onChange={(e) => setSelectedJob((e.target.value))}
-          className="w-full p-2 border rounded"
+          onChange={(e) => setSelectedJob(e.target.value)}
+          label="Select Target Role"
         >
-          <option value="">-- Choose Role --</option>
+          <MenuItem value="">
+            <em>-- Choose Role --</em>
+          </MenuItem>
           {jobs.map((j) => (
-            <option key={j.id} value={j.id}>
+            <MenuItem key={j.id} value={j.id}>
               {j.title}
-            </option>
+            </MenuItem>
           ))}
-        </select>
-      </div>
+        </Select>
+      </FormControl>
 
-      {/* Show student info */}
+      {/* Student info */}
       {studentInfo && (
-        <div className="mb-4 p-3 bg-gray-100 rounded">
-          <p><strong>Current Role:</strong> {studentInfo.current_role}</p>
-          <p><strong>Time Available (weeks):</strong> {studentInfo.time_available}</p>
-          <p><strong>Budget Available ($):</strong> {studentInfo.cost_available}</p>
-        </div>
+        <Paper
+          variant="outlined"
+          sx={{ p: 2, mt: 2, bgcolor: "grey.100", borderRadius: 1 }}
+        >
+          <Typography>
+            <strong>Current Role:</strong> {studentInfo.role}
+          </Typography>
+          <Typography>
+            <strong>Time Available (weeks):</strong> {studentInfo.max_duration_weeks}
+          </Typography>
+          <Typography>
+            <strong>Budget Available ($):</strong> {studentInfo.budget}
+          </Typography>
+        </Paper>
       )}
+      <SkillGapChart studentId={selectedStudent} jobId={selectedJob} />
+      {/* Get Recommendations Button */}
+      <Box mt={3}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={getRecommendations}
+          disabled={loading}
+        >
+          {loading ? <CircularProgress size={24} color="inherit" /> : "Get Recommendations"}
+        </Button>
+      </Box>
 
-      {/* Button to trigger recommendation */}
-      <button
-        onClick={getRecommendations}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        disabled={loading}
-      >
-        {loading ? "Generating..." : "Get Recommendations"}
-      </button>
-      {console.log(recommendations)}
-      {/* Show Recommendations */}
+      {/* Recommendations */}
       {recommendations && (
-        <div className="mt-6 p-4 border rounded bg-green-50">
-          <h3 className="text-xl font-bold mb-2">Recommended Path</h3>
+        <Card sx={{ mt: 4, borderRadius: 2 }}>
+          <CardContent>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              Recommended Path
+            </Typography>
+            
+            <List>
+              {recommendations?.course_path?.map((course, idx) => (
+                <ListItem key={idx} sx={{ display: "list-item", pl: 2 }}>
+                  {course.title} ({course.duration_weeks} weeks)
+                </ListItem>
+              ))}
+            </List>
 
-         {/* 3-Course Path */}
-          <ol className="list-decimal list-inside mb-3">
-            {recommendations?.course_path?.map((course, idx) => (
-              <li key={idx}>
-                {course.title} ({course.duration_weeks} weeks)
-              </li>
-            ))}
-          </ol>
+            <Divider sx={{ my: 2 }} />
 
-         
-          {/* Timeline 
-          <p><strong>Total Duration:</strong> {recommendations.timeline} weeks</p>
-          <p><strong>Total Cost:</strong> ${recommendations.total_cost}</p>*/}
-          <p><strong>LLM Recommendation</strong> ${recommendations.llm_reasoning}</p>
-          
-        </div>
+            {recommendations.llm_reasoning.split("\n").map((line, idx) => (
+              <Typography key={idx} variant="body2" gutterBottom>
+                {line}
+              </Typography>
+            ))}  
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              Course Coverage Metric (Top k): {recommendations["top3_coverage metric"]}
+              LLM Latency (ms): {recommendations["llm_latency_ms"]} 
+              Backend Latency (ms): {recommendations["backend_latency_ms"]}
+            </Typography>
+          </CardContent>
+        </Card>
       )}
-    </div>
+    </Box>
   );
 }
 
