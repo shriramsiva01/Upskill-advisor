@@ -160,6 +160,7 @@ function StudentUpgrade() {
         </Paper>
       )}
       <SkillGapChart studentId={selectedStudent} jobId={selectedJob} />
+
       {/* Get Recommendations Button */}
       <Box mt={3}>
         <Button
@@ -179,7 +180,7 @@ function StudentUpgrade() {
             <Typography variant="h5" fontWeight="bold" gutterBottom>
               Recommended Path
             </Typography>
-            
+
             <List>
               {recommendations?.course_path?.map((course, idx) => (
                 <ListItem key={idx} sx={{ display: "list-item", pl: 2 }}>
@@ -194,7 +195,8 @@ function StudentUpgrade() {
               <Typography key={idx} variant="body2" gutterBottom>
                 {line}
               </Typography>
-            ))}  
+            ))}
+
             <Stack spacing={1}>
               <Typography variant="h6" fontWeight="bold">
                 Course Coverage Metric (Top k): {recommendations["top3_coverage metric"]}
@@ -206,6 +208,37 @@ function StudentUpgrade() {
                 Backend Latency (ms): {recommendations["backend_latency_ms"]}
               </Typography>
             </Stack>
+
+            {/* PDF Download Button */}
+            <Box mt={2}>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={async () => {
+                  try {
+                    const res = await axios.get(
+                      `http://127.0.0.1:8000/report/${selectedStudent}/${selectedJob}`,
+                      { responseType: "blob" } // important for binary
+                    );
+
+                    const url = window.URL.createObjectURL(new Blob([res.data]));
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.setAttribute(
+                      "download",
+                      `report_student${selectedStudent}_job${selectedJob}.pdf`
+                    );
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                  } catch (err) {
+                    console.error("Error downloading PDF:", err);
+                  }
+                }}
+              >
+                Download PDF Report
+              </Button>
+            </Box>
           </CardContent>
         </Card>
       )}
