@@ -34,23 +34,17 @@ def health():
 
 @app.get("/students", tags=["Students"], summary="Get all students")
 def students(db: Session = Depends(get_db)):
-    """
-    Returns a list of all students.
-    """
+    
     return crud.get_students(db)
 
 @app.get("/job_roles",  tags=["Jobs"], summary="Get all job roles")
 def job_roles(db: Session = Depends(get_db)):
-    """
-    Returns a list of all job roles.
-    """
+    
     return crud.get_job_role(db)
 
 @app.get("/student_info", tags=["Students"], summary="Get student information")
 def student_info(student_id: int, db: Session = Depends(get_db)):
-    """
-    Returns information about students providing details on their current role, the time and cost they can spare to upgrade.
-    """
+    
     info = crud.get_student_info(db, student_id)
     if not info:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -64,9 +58,7 @@ def student_info(student_id: int, db: Session = Depends(get_db)):
 @app.api_route("/skill_gap/{student_id}/{job_id}", methods=["GET", "POST"], tags=["Skill Gap"],
     summary="Get skill gap for a student for a specific job")
 def skill_gap(student_id: int, job_id: int, request: Request, db: Session = Depends(get_db)):
-    """
-    Calculates the skill gap for a student for a specific job.
-    """
+    
     print(f"Received {request.method} /skill_gap/{student_id}/{job_id}")
     student_skills = crud.get_student_skills(db, student_id)
     student_info = crud.get_student_info(db, student_id)
@@ -124,8 +116,7 @@ def compute_topk_coverage(job_requirements: dict, recommendations: list, k: int 
 @app.api_route("/advise/{student_id}/{job_id}", methods=["GET", "POST"], tags=["Advice"],
     summary="Get personalized advice for a student for a job")
 def advise(student_id: int, job_id: int, request: Request, db: Session = Depends(get_db)):
-    
-    start_time = time.perf_counter()   # ✅ start timer
+    start_time = time.perf_counter()
 
     print(f"Received {request.method} /advise/{student_id}/{job_id}")
     student_skills = crud.get_student_skills(db, student_id)
@@ -137,85 +128,81 @@ def advise(student_id: int, job_id: int, request: Request, db: Session = Depends
 
     embeddings = pinecone_utils.init_embeddings()
     index = pinecone_utils.get_index()
-    
+
     recommendations = []
     for skill, required in job_reqs.items():
         current = student_skills.get(skill, 0)
         gap = required - current
         if gap > 0:
-            # Retrieve candidate courses that teach this skill
-            #query_text = f"{skill} level {gap}"  # simple semantic query
-            query_text = f"{skill}"  # simple semantic query
-
+            query_text = f"{skill}"
             query_vector = embeddings.embed_query(query_text)
-            print(f"Querying Pinecone for skill '{skill}' gap {gap}")
-            # Query Pinecone for top 5 matching courses
-            results = index.query(
-                vector=query_vector,
-                top_k=5,
-                include_metadata=True
-            )
-            print(f"Skill '{skill}' gap {gap}, found {len(results['matches'])} courses")
-            # Filter by student's available time and budget
-            suitable_courses = [
-                r.metadata for r in results["matches"]
-                if r.metadata["duration_weeks"] <= student_info["max_duration_weeks"]
-                #and r.metadata["cost"] <= student_info["budget"]
-            ]
+            results = index.query(vector=query_vector, top_k=5, include_metadata=True)
 
-            # Add to recommendations
+            suitable_courses = []
+            for r in results["matches"]:
+                meta = r.metadata
+                if "cost" not in meta:
+                    meta["cost"] = 0.0
+                if "duration_weeks" not in meta:
+                    meta["duration_weeks"] = 0
+                if meta["duration_weeks"] <= student_info["max_duration_weeks"] and meta["cost"] <= student_info["budget"]:
+                    suitable_courses.append(meta)
+
             recommendations.extend(suitable_courses)
 
-    print(recommendations)
-    
-    
     coverage_at3 = compute_topk_coverage(job_reqs, recommendations, k=3)
-    llm_start_time = time.perf_counter()   # ✅ start timer
-    # LLM reasoning is optional; don't fail if not configured
-    llm_text = "LLM not configured or failed"
+
+    # Default result in case LLM fails
+    result = {
+        "student": {"id": student_id, "skills": student_skills},
+        "job": {"id": job_id, "required_skills": job_reqs},
+        "course_path": recommendations if recommendations else [],
+        "llm_reasoning": "LLM not configured or failed",
+        "top3_coverage metric": coverage_at3,
+        "backend_latency_ms": None,
+        "llm_latency_ms": None
+    }
+
+    # Try LLM
     try:
         from langchain_community.chat_models import ChatOllama
         from langchain.prompts import ChatPromptTemplate
+
         llm = ChatOllama(model="llama3")
         prompt = ChatPromptTemplate.from_template(
             "The student has the following skills: {student}. "
             "The target job requires: {job}. "
-            "We analyzed the gaps and found these detailed course recommendations per skill: {recommendations}. "
-            #"The overall course path we can take is: {course_path}. "
-            "Suggest the best sequence of courses from the overall path that will efficiently close the gaps, "
+            "We analyzed the gaps and found these detailed course recommendations: {recommendations}. "
+            "Suggest the best sequence of courses that efficiently closes the gaps, "
             "minimizing cost and time, and explain why."
         )
 
-        print("LLM initialized")
         chain = prompt | llm
-        
-        print(f"Invoking LLM with student skills {student_skills}, job {job_reqs}, courses {recommendations}")
-        # try synchronous invoke; if async in your environment you'll need to await
+        llm_start = time.perf_counter()
+
         llm_resp = chain.invoke({
             "student": student_skills,
             "job": job_reqs,
-            #"course_path": course_path,
             "recommendations": recommendations
         })
+
         llm_text = getattr(llm_resp, "content", str(llm_resp))
-        print("LLM response received - evaluating coverage metric")
+
         end_time = time.perf_counter()
-        latency_ms = round((end_time - start_time) * 1000, 2)   # in milliseconds
-        llm_latency_ms = round((end_time - llm_start_time) * 1000, 2)
-        result= {
-        "student": {"id": student_id, "skills": student_skills},
-        "job": {"id": job_id, "required_skills": job_reqs},
-        "course_path": recommendations if recommendations else [],
-        "llm_reasoning": format_llm_reasoning(llm_text),
-        "top3_coverage metric": coverage_at3,
-        "backend_latency_ms": latency_ms,
-        "llm_latency_ms": llm_latency_ms
-        }
-        #print("LLM response:", format_llm_reasoning(llm_text))
+        latency_ms = round((end_time - start_time) * 1000, 2)
+        llm_latency_ms = round((end_time - llm_start) * 1000, 2)
+
+        result.update({
+            "llm_reasoning": format_llm_reasoning(llm_text),
+            "backend_latency_ms": latency_ms,
+            "llm_latency_ms": llm_latency_ms
+        })
+
     except Exception as e:
         print("LLM disabled or error:", e)
 
     return result
+
 
 
 @app.get("/report/{student_id}/{job_id}")
