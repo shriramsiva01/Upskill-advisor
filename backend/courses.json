@@ -6,7 +6,8 @@
     "difficulty": "beginner",
     "duration_weeks": 6,
     "prerequisites": [],
-    "outcomes": ["python_fundamentals"]
+    "outcomes": ["python_fundamentals"],
+    "cost": 300
   },
   {
     "course_id": "C102",
@@ -15,7 +16,8 @@
     "difficulty": "intermediate",
     "duration_weeks": 4,
     "prerequisites": ["python_basics"],
-    "outcomes": ["linear_algebra_basics"]
+    "outcomes": ["linear_algebra_basics"],
+    "cost": 500
   },
   {
     "course_id": "C103",
@@ -24,7 +26,8 @@
     "difficulty": "intermediate",
     "duration_weeks": 5,
     "prerequisites": ["python_basics"],
-    "outcomes": ["statistical_analysis"]
+    "outcomes": ["statistical_analysis"],
+    "cost": 600
   },
   {
     "course_id": "C104",
@@ -33,7 +36,8 @@
     "difficulty": "beginner",
     "duration_weeks": 3,
     "prerequisites": ["python_basics"],
-    "outcomes": ["data_manipulation"]
+    "outcomes": ["data_manipulation"],
+    "cost": 550
   },
   {
     "course_id": "C105",
@@ -42,7 +46,8 @@
     "difficulty": "intermediate",
     "duration_weeks": 6,
     "prerequisites": ["python_basics", "linear_algebra", "statistics"],
-    "outcomes": ["ml_foundation"]
+    "outcomes": ["ml_foundation"],
+    "cost": 400
   },
   {
     "course_id": "C106",
@@ -51,7 +56,8 @@
     "difficulty": "advanced",
     "duration_weeks": 6,
     "prerequisites": ["ml_basics", "python_basics"],
-    "outcomes": ["dl_models"]
+    "outcomes": ["dl_models"],
+    "cost": 600
   },
   {
     "course_id": "C107",
@@ -60,7 +66,8 @@
     "difficulty": "advanced",
     "duration_weeks": 5,
     "prerequisites": ["python_basics", "ml_basics"],
-    "outcomes": ["nlp_basics"]
+    "outcomes": ["nlp_basics"],
+    "cost": 550
   },
   {
     "course_id": "C108",
@@ -69,7 +76,8 @@
     "difficulty": "advanced",
     "duration_weeks": 5,
     "prerequisites": ["python_basics", "ml_basics"],
-    "outcomes": ["cv_models"]
+    "outcomes": ["cv_models"],
+    "cost": 450
   },
   {
     "course_id": "C109",
@@ -78,7 +86,8 @@
     "difficulty": "beginner",
     "duration_weeks": 2,
     "prerequisites": [],
-    "outcomes": ["ethical_ai_principles"]
+    "outcomes": ["ethical_ai_principles"],
+    "cost": 300
   }
 ]
 
