@@ -36,3 +36,27 @@ def get_job_requirements(db: Session, job_id: int) -> Dict[str,int]:
     rows = db.query(JobSkill).join(Skill).filter(JobSkill.job_id == job_id).all()
     return {r.skill.name: (r.required_level if r.required_level is not None else 0) for r in rows}
 
+# crud.py
+
+def get_courses_for_skill(db: Session, skill_name: str) -> list[dict]:
+    # Get the skill object first
+    skill = db.query(Skill).filter(Skill.name == skill_name).first()
+    if not skill:
+        return []
+
+    # Query all courses linked to this skill
+    courses = db.query(Course).filter(Course.skill_id == skill.skill_id).all()
+
+    result = []
+    for c in courses:
+        result.append({
+            "id": c.course_id,
+            "title": c.title,
+            "provider": c.provider or "",
+            "duration": c.duration or 1,      # default to 1 if None
+            "cost": float(c.cost or 0.0),     # default to 0.0
+            "level_gain": c.level_gain or 1,  # default to 1
+        })
+    return result
+
+
