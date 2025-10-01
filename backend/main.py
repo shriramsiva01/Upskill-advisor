@@ -124,9 +124,7 @@ def compute_topk_coverage(job_requirements: dict, recommendations: list, k: int 
 @app.api_route("/advise/{student_id}/{job_id}", methods=["GET", "POST"], tags=["Advice"],
     summary="Get personalized advice for a student for a job")
 def advise(student_id: int, job_id: int, request: Request, db: Session = Depends(get_db)):
-    """
-    Returns personalized advice for a student to bridge the skill gap for a job leveraging Llama3 local LLM.
-    """
+    
     start_time = time.perf_counter()   # ✅ start timer
 
     print(f"Received {request.method} /advise/{student_id}/{job_id}")
@@ -169,22 +167,7 @@ def advise(student_id: int, job_id: int, request: Request, db: Session = Depends
             recommendations.extend(suitable_courses)
 
     print(recommendations)
-    '''
-    all_courses = []
-    for skill, target in job_reqs.items():
-        current = student_skills.get(skill, 0)
-        gap = target - current
-        if gap > 0:
-            # Retrieve candidate courses that teach this skill
-            print(f"Getting courses for skill from pinecone")
-            courses = get_courses_for_skill(skill, index, embeddings)
-            for c in courses:
-                c["score"] = round((c["level_gain"] or 1) / ((c["duration"] or 1) * float(c["cost"] or 1)), 6)
-                all_courses.append(c)
-
-    unique_courses = {c["course_id"]: c for c in all_courses}.values()
-    course_path = list(unique_courses)
-    '''
+    
     
     coverage_at3 = compute_topk_coverage(job_reqs, recommendations, k=3)
     llm_start_time = time.perf_counter()   # ✅ start timer
@@ -235,9 +218,6 @@ def advise(student_id: int, job_id: int, request: Request, db: Session = Depends
     return result
 
 
-
-
-'''
 @app.get("/report/{student_id}/{job_id}")
 def report_pdf(student_id: int, job_id: int, db: Session = Depends(get_db)):
     student_skills = crud.get_student_skills(db, student_id)
@@ -261,7 +241,7 @@ def report_pdf(student_id: int, job_id: int, db: Session = Depends(get_db)):
                     c["score"] = 0.0
             recommendations.append({"skill": skill, "gap": gap, "courses": courses})
 
-    # PDF creation
+    # --- PDF Creation ---
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
     y = 750
@@ -308,4 +288,3 @@ def report_pdf(student_id: int, job_id: int, db: Session = Depends(get_db)):
     c.save()
     buffer.seek(0)
     return Response(content=buffer.read(), media_type="application/pdf")
-    '''
